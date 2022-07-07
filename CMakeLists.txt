@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(stereo_logger)
+project(cpp_stereo_reconstruction)
 
 # Default to C99
 if(NOT CMAKE_C_STANDARD)
@@ -44,19 +44,27 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
   cv_bridge
 )
 
-add_executable(stereo_logger
-    src/stereo_logger_node.cpp )
+add_executable(stereo_reconstruction 
+    src/stereo_reconstruction_node.cpp 
+    src/stereo_reconstruction.cpp)
 
-ament_target_dependencies(stereo_logger
+ament_target_dependencies(stereo_reconstruction
     ${THIS_PACKAGE_INCLUDE_DEPENDS})
 
-target_link_libraries( stereo_logger
+target_link_libraries( stereo_reconstruction
   ${OpenCV_LIBS}
 )
 
-install(TARGETS stereo_logger
+install(TARGETS stereo_reconstruction
   EXPORT export_${PROJECT_NAME}
   DESTINATION lib/${PROJECT_NAME})
+
+
+# Install calibration files.
+install(DIRECTORY
+  calibration
+  DESTINATION share/${PROJECT_NAME}/
+)
 
 # Install params files.
 install(DIRECTORY
@@ -67,6 +75,12 @@ install(DIRECTORY
 # Install launch files.
 install(DIRECTORY
   launch
+  DESTINATION share/${PROJECT_NAME}/
+)
+
+# Install rviz files.
+install(DIRECTORY
+  rviz
   DESTINATION share/${PROJECT_NAME}/
 )
 

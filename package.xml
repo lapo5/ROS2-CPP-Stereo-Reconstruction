@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>stereo_logger</name>
+  <name>cpp_stereo_reconstruction</name>
   <version>0.0.0</version>
-  <description>Stereo Logger</description>
+  <description>Stereo Reconstruction in CPP</description>
   <maintainer email="todo@todo.com">TODO</maintainer>
   <license>BSD</license>
 

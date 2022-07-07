@@ -1,0 +1,4 @@
+stereo_reconstruction:
+  ros__parameters:
+
+    calibration_file: /home/marco/xarm_devel/src/ROS2-Stereo-Calibration/calibration/calib_params_stereo.xml
