@@ -14,12 +14,12 @@ from launch_ros.actions import Node
 def generate_launch_description():
 
     params_allied_left = os.path.join(
-        get_package_share_directory("cpp_stereo_reconstruction"),
+        get_package_share_directory("stereo_logger"),
         "params",
         "params_cam_left.yaml",
     )
     params_allied_right = os.path.join(
-        get_package_share_directory("cpp_stereo_reconstruction"),
+        get_package_share_directory("stereo_logger"),
         "params",
         "params_cam_right.yaml",
     )
