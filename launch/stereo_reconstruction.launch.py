@@ -47,4 +47,8 @@ def generate_launch_description():
     )
     
 
-    return LaunchDescription([node_cam_right, node_cam_left, stereo_acquisition_node])
+    return LaunchDescription([
+        node_cam_right, 
+        node_cam_left, 
+        stereo_acquisition_node
+    ])

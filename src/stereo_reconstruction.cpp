@@ -85,8 +85,8 @@ std::pair<cv::Mat, cv::Mat> StereoReconstruction::pcl_from_disparity(cv::Mat dis
     disparity_map.convertTo(disparity_map, CV_32FC1); 
     disparity_map = disparity_map / 16.0;
 
-    cv::Mat points_3D(disparity_map.size(),CV_32FC1);
-    reprojectImageTo3D(disparity_map, points_3D, Q, false, CV_32FC1);
+    cv::Mat points_3D(disparity_map.size(), CV_32FC1);
+    reprojectImageTo3D(disparity_map, points_3D, Q, true, CV_32FC1);
 
     cv::Mat colors;
     cv::cvtColor(img_right, colors, cv::COLOR_BGR2RGB);
@@ -101,7 +101,7 @@ std::pair<cv::Mat, cv::Mat> StereoReconstruction::pcl_from_disparity(cv::Mat dis
 
     points_3D.copyTo(output_points, mask);
     colors.copyTo(output_colors, mask);
-
+    
     return std::make_pair(output_points, output_colors);
 }
 

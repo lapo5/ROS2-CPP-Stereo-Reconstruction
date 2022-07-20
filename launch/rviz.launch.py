@@ -23,13 +23,30 @@ def generate_launch_description():
             arguments=['-d', rviz_config_path]
         ),
 
+
+        Node(
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            name='static_transform_publisher',
+            output='screen',
+            arguments=['0.0', '0.0', '0.0', '0.0', '1.57', '0.0', 'world', "f1"]
+        ),
+
+        Node(
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            name='static_transform_publisher',
+            output='screen',
+            arguments=['0.0', '0.0', '0.0', '-1.57', '0.0', '0.0', 'f1', "pointcloud"]
+        ),
+
         
         Node(
             package='tf2_ros',
             executable='static_transform_publisher',
             name='static_transform_publisher',
             output='screen',
-            arguments=['0.0', '0.0', '0.0', '0.0', '0.0', '0.0', 'world', "camera_left_link"]
+            arguments=['0.0', '0.0', '0.0', '0.0', '0.0', '0.0', 'pointcloud', "camera_left_link"]
         ),
 
 
@@ -38,15 +55,6 @@ def generate_launch_description():
             executable='static_transform_publisher',
             name='static_transform_publisher',
             output='screen',
-            arguments=['0.0', '0.0', '0.0', '0.0', '0.0', '0.0', 'world', "camera_right_link"]
-        ),
-
-
-        Node(
-            package='tf2_ros',
-            executable='static_transform_publisher',
-            name='static_transform_publisher',
-            output='screen',
-            arguments=['0.0', '0.0', '0.0', '0.0', '0.0', '0.0', 'world', "pointcloud"]
+            arguments=['0.0', '0.0', '0.0', '0.0', '0.0', '0.0', 'pointcloud', "camera_right_link"]
         )
 ])

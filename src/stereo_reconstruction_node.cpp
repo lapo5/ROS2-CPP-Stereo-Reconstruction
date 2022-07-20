@@ -17,8 +17,12 @@ StereoReconstructionNode::StereoReconstructionNode(const std::string node_name, 
 {
     std::cerr << "StereoReconstructionNode Starting.." << std::endl;
 
-    std::string package_share_directory = ament_index_cpp::get_package_share_directory("cpp_stereo_reconstruction");
-    calibration_file = package_share_directory + "/calibration/calib_params_stereo.xml";
+    calibration_file = this->declare_parameter<std::string>("calibration_file", "auto");
+
+    if(!calibration_file.compare("auto")){
+        std::string package_share_directory = ament_index_cpp::get_package_share_directory("cpp_stereo_reconstruction");
+        calibration_file = package_share_directory + "/calibration/calib_params_stereo.xml";
+    }
     std::cerr << "calibration_file " << calibration_file << std::endl;
 
     std::string camera_left_topic = this->declare_parameter<std::string>("subscribers.camera_left", "/camera_left/raw_frame");
@@ -77,6 +81,29 @@ void StereoReconstructionNode::callback_frame_right(const Image::SharedPtr msg) 
     current_frame_right = cv_ptr->image;
     
 }
+
+std::string type2str(int type) {
+  std::string r;
+
+  uchar depth = type & CV_MAT_DEPTH_MASK;
+  uchar chans = 1 + (type >> CV_CN_SHIFT);
+
+  switch ( depth ) {
+    case CV_8U:  r = "8U"; break;
+    case CV_8S:  r = "8S"; break;
+    case CV_16U: r = "16U"; break;
+    case CV_16S: r = "16S"; break;
+    case CV_32S: r = "32S"; break;
+    case CV_32F: r = "32F"; break;
+    case CV_64F: r = "64F"; break;
+    default:     r = "User"; break;
+  }
+
+  r += "C";
+  r += (chans+'0');
+
+  return r;
+}
      
 
 void StereoReconstructionNode::generate_pcl_thread(){
@@ -121,10 +148,26 @@ void StereoReconstructionNode::generate_pcl_thread(){
         right_disp_msg->header.frame_id = "pointcloud";
         right_disparity_pub->publish(*right_disp_msg.get());
         
-        // cv::Mat filter_disparity_map = stereo_reconstruction->filter_disparity(img_left, img_right, disparity_map, right_disparity_map);
+        cv::Mat filter_disparity_map = stereo_reconstruction->filter_disparity(img_left, img_right, disparity_map, right_disparity_map);
 
-        std::pair<cv::Mat, cv::Mat> pcl_output = stereo_reconstruction->pcl_from_disparity(disparity_map, img_left, img_right);
+        cv::Mat filter_disparity_map_image;
+        cv::minMaxLoc(filter_disparity_map, &min, &max);
+        filter_disparity_map.convertTo(filter_disparity_map_image, CV_8UC1, 255.0/max);
 
+        sensor_msgs::msg::Image::SharedPtr filter_disparity_msg =
+            cv_bridge::CvImage(std_msgs::msg::Header(), "mono8", filter_disparity_map_image)
+                .toImageMsg();
+
+        filter_disparity_msg->header.stamp = rclcpp::Clock().now();
+        filter_disparity_msg->header.frame_id = "pointcloud";
+        filter_disparity_pub->publish(*filter_disparity_msg.get());
+
+        cv::minMaxLoc(filter_disparity_map, &min, &max);
+
+        cv::Mat filter_disparity_map2 = filter_disparity_map;
+        // filter_disparity_map.convertTo(filter_disparity_map2, CV_16S, 255.0/max);
+        std::pair<cv::Mat, cv::Mat> pcl_output = stereo_reconstruction->pcl_from_disparity(filter_disparity_map2, img_left, img_right);
+        
         cv::Mat output_points = pcl_output.first;
         cv::Mat output_colors = pcl_output.second;
 
