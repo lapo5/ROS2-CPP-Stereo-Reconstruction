@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(cpp_stereo_reconstruction)
+project(stereo_reconstruction_cpp)
 
 # Default to C99
 if(NOT CMAKE_C_STANDARD)

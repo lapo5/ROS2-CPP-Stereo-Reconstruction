@@ -20,7 +20,7 @@ StereoReconstructionNode::StereoReconstructionNode(const std::string node_name, 
     calibration_file = this->declare_parameter<std::string>("calibration_file", "auto");
 
     if(!calibration_file.compare("auto")){
-        std::string package_share_directory = ament_index_cpp::get_package_share_directory("cpp_stereo_reconstruction");
+        std::string package_share_directory = ament_index_cpp::get_package_share_directory("stereo_reconstruction_cpp");
         calibration_file = package_share_directory + "/calibration/calib_params_stereo.xml";
     }
     std::cerr << "calibration_file " << calibration_file << std::endl;

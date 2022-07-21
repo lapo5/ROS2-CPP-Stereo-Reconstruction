@@ -1,7 +1,9 @@
 
 ############## TERMINAL 1 - 3D Reconstruction ##############
 xarm_ros2_source
-ros2 launch cpp_stereo_reconstruction stereo_reconstruction.launch.py
+ros2 launch stereo_reconstruction_cpp stereo_reconstruction.launch.py
+## IF TESTS on Stereo reconstruction
+ros2 launch stereo_reconstruction_cpp test_stereo_reconstruction.launch.py
 
 ############## TERMINAL 2 - Cloud Clipping ##############
 xarm_ros2_source
@@ -17,4 +19,4 @@ ros2 launch cloud_voxelizator cloud_voxelizator.launch.py
 
 ############## TERMINAL 5 - RVIZ2 ##############
 xarm_ros2_source
-ros2 launch cpp_stereo_reconstruction rviz.launch.py
+ros2 launch stereo_reconstruction_cpp rviz.launch.py

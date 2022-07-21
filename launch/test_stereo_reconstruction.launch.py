@@ -22,7 +22,7 @@ def generate_launch_description():
     params_stereo_filepath = os.path.join(
         get_package_share_directory("stereo_reconstruction_cpp"),
         "params",
-        "params_stereo_reconstruction.yaml",
+        "params_stereo_reconstruction_tests.yaml",
     )
 
     node_cam_right = Node(
