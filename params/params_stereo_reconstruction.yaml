@@ -1,5 +1,5 @@
 stereo_reconstruction:
   ros__parameters:
 
-    # calibration_file: /home/marco/xarm_devel/src/stereo_ws/ROS2-CPP-Stereo-3D-Reconstruction/calibration_right/calib_params_stereo.xml
-    calibration_file: /home/marco/xarm_devel/src/stereo_ws/ROS2-CPP-Stereo-3D-Reconstruction/calibration/calib_params_stereo.xml
+    # calibration_file: /home/marco/erossp_ros2_devel/src/stereo_ws/ROS2-CPP-Stereo-3D-Reconstruction/calibration_right/calib_params_stereo.xml
+    calibration_file: /home/marco/erossp_ros2_devel/src/stereo_ws/ROS2-CPP-Stereo-3D-Reconstruction/calibration/calib_params_stereo.xml

@@ -3,7 +3,8 @@
 
 using namespace cv;
 
-StereoReconstruction::StereoReconstruction(std::string file_storage, std::map<std::string, int> reconstruction_parameters)
+StereoReconstruction::StereoReconstruction(std::string file_storage, 
+        std::map<std::string, int> reconstruction_parameters, std::map<std::string, float> filter_parameters)
 {
     FileStorage fs(file_storage, FileStorage::READ);
     if (!fs.isOpened())
@@ -20,7 +21,6 @@ StereoReconstruction::StereoReconstruction(std::string file_storage, std::map<st
     fs["q"] >> Q;
 
     stereo = StereoBM::create();
-    
     stereo->setNumDisparities(reconstruction_parameters["numDisparities"]);
     stereo->setBlockSize(reconstruction_parameters["blockSize"]);
     stereo->setPreFilterType(reconstruction_parameters["preFilterType"]);
@@ -36,16 +36,20 @@ StereoReconstruction::StereoReconstruction(std::string file_storage, std::map<st
     minDisparity = reconstruction_parameters["minDisparity"];
     numDisparities = reconstruction_parameters["numDisparities"];
 
+    wls_filter = cv::ximgproc::createDisparityWLSFilterGeneric(false);
+
+    double lambda, sigma; //Post-filter parameters
+    lambda = filter_parameters["lambda"];
+    sigma = filter_parameters["sigma"];
+    wls_filter->setLambda(lambda);
+    wls_filter->setSigmaColor(sigma);
+
     right_matcher = createRightMatcher(stereo);
 
 }
 
-Mat StereoReconstruction::disparity_from_stereovision(Mat img_left, Mat img_right){  
 
-    Mat img_left_gray, img_right_gray;        
-    
-    cvtColor(img_left, img_left_gray, cv::COLOR_RGB2GRAY);
-    cvtColor(img_right, img_right_gray, cv::COLOR_RGB2GRAY);
+Mat StereoReconstruction::disparity_from_stereovision(Mat img_left_gray, Mat img_right_gray){  
 
     Mat img_left_nice, img_right_nice; 
 
@@ -59,12 +63,8 @@ Mat StereoReconstruction::disparity_from_stereovision(Mat img_left, Mat img_righ
     return disparity_map;
 }
 
-Mat StereoReconstruction::right_disparity_from_stereovision(Mat img_left, Mat img_right){  
 
-    Mat img_left_gray, img_right_gray;        
-    
-    cvtColor(img_left, img_left_gray, cv::COLOR_RGB2GRAY);
-    cvtColor(img_right, img_right_gray, cv::COLOR_RGB2GRAY);
+Mat StereoReconstruction::right_disparity_from_stereovision(Mat img_left_gray, Mat img_right_gray){  
 
     Mat img_left_nice, img_right_nice; 
 
@@ -79,6 +79,7 @@ Mat StereoReconstruction::right_disparity_from_stereovision(Mat img_left, Mat im
 
     return disparity_map;
 }
+
 
 std::pair<cv::Mat, cv::Mat> StereoReconstruction::pcl_from_disparity(cv::Mat disparity_map, cv::Mat img_left, cv::Mat img_right){
 
@@ -101,30 +102,33 @@ std::pair<cv::Mat, cv::Mat> StereoReconstruction::pcl_from_disparity(cv::Mat dis
 
     points_3D.copyTo(output_points, mask);
     colors.copyTo(output_colors, mask);
-    
+
     return std::make_pair(output_points, output_colors);
+}
+
+cv::Mat StereoReconstruction::simple_pcl_from_disparity(cv::Mat disparity_map){
+
+    disparity_map.convertTo(disparity_map, CV_32FC1); 
+    disparity_map = disparity_map / 16.0;
+
+    cv::Mat points_3D(disparity_map.size(), CV_32FC1);
+    reprojectImageTo3D(disparity_map, points_3D, Q, true, CV_32FC1);
+
+    double min, max;
+    cv::minMaxLoc(disparity_map, &min, &max);
+
+    cv::Mat mask = disparity_map > min;
+
+    cv::Mat output_points;
+
+    points_3D.copyTo(output_points, mask);
+    
+    return output_points;
 }
 
 
 cv::Mat StereoReconstruction::filter_disparity(cv::Mat left_image, cv::Mat right_image, cv::Mat left_disp, cv::Mat right_disp){
-
-
    	Mat filtered_disp, conf_map;
-	
-    /* Filter
-        * MD calculated by the respective match instances, just as the 
-        * left image is passed to the filter. 
-        * Note that we are using the original image to guide the filtering 
-        * process.
-    */
-
-    wls_filter = cv::ximgproc::createDisparityWLSFilterGeneric(false);
-
-    double lambda, sigma; //Post-filter parameters
-    lambda = 5000.0;
-    sigma = 1.0;
-    wls_filter->setLambda(lambda);
-    wls_filter->setSigmaColor(sigma);
 
     wls_filter->filter(left_disp, left_image, filtered_disp, right_disp, cv::Rect(), right_image);
     
@@ -133,5 +137,4 @@ cv::Mat StereoReconstruction::filter_disparity(cv::Mat left_image, cv::Mat right
     // conf_map = wls_filter->getConfidenceMap();
     
     return filtered_disp;
-    
 }

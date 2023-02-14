@@ -1,0 +1,25 @@
+av_node_left:
+  ros__parameters:
+
+    camera_name: DEV_1AB22C0218D0
+
+    publishers:
+      raw_frame: /camera_left/raw_frame
+
+    services:
+      stop_camera: /camera_left/get_cam_state
+
+    frames: 
+      camera_link: camera_left_link
+      
+    rotation_angle: 180.0
+    
+    resize:
+      enable: True
+      resized_width: 1024
+      resized_height: 1024
+
+    crop:
+      enable: False
+
+    auto_exposure: Once

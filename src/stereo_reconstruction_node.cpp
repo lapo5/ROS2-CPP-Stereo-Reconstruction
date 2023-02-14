@@ -11,6 +11,31 @@
 #include "stereo_reconstruction.h"
 #include "stereo_reconstruction_node.h"
 
+#include <chrono>
+using namespace std::chrono;
+
+std::string Mat_type2str(int type) {
+    std::string r;
+
+    uchar depth = type & CV_MAT_DEPTH_MASK;
+    uchar chans = 1 + (type >> CV_CN_SHIFT);
+
+    switch ( depth ) {
+    case CV_8U:  r = "8U"; break;
+    case CV_8S:  r = "8S"; break;
+    case CV_16U: r = "16U"; break;
+    case CV_16S: r = "16S"; break;
+    case CV_32S: r = "32S"; break;
+    case CV_32F: r = "32F"; break;
+    case CV_64F: r = "64F"; break;
+    default:     r = "User"; break;
+    }
+
+    r += "C";
+    r += (chans+'0');
+
+    return r;
+}
 
 StereoReconstructionNode::StereoReconstructionNode(const std::string node_name, rclcpp::NodeOptions options)
 : Node(node_name, options)
@@ -23,6 +48,7 @@ StereoReconstructionNode::StereoReconstructionNode(const std::string node_name, 
         std::string package_share_directory = ament_index_cpp::get_package_share_directory("stereo_reconstruction_cpp");
         calibration_file = package_share_directory + "/calibration/calib_params_stereo.xml";
     }
+
     std::cerr << "calibration_file " << calibration_file << std::endl;
 
     std::string camera_left_topic = this->declare_parameter<std::string>("subscribers.camera_left", "/camera_left/raw_frame");
@@ -34,14 +60,18 @@ StereoReconstructionNode::StereoReconstructionNode(const std::string node_name, 
     reconstruction_parameters["preFilterType"] = 0;
     reconstruction_parameters["preFilterSize"] = 6*2 + 5;
     reconstruction_parameters["preFilterCap"] = 16;
+    reconstruction_parameters["minDisparity"] = 4;
     reconstruction_parameters["textureThreshold"] = 12;
     reconstruction_parameters["uniquenessRatio"] = 12;
     reconstruction_parameters["speckleRange"] = 13;
     reconstruction_parameters["speckleWindowSize"] = 5*2;
     reconstruction_parameters["disp12MaxDiff"] = 3;
-    reconstruction_parameters["minDisparity"] = 4;
 
-    stereo_reconstruction = std::make_shared<StereoReconstruction>(calibration_file, reconstruction_parameters);
+    std::map<std::string, float> filter_parameters;
+    filter_parameters["lambda"] = 8000.0;
+    filter_parameters["sigma"] = 1.5;
+
+    stereo_reconstruction = std::make_shared<StereoReconstruction>(calibration_file, reconstruction_parameters, filter_parameters);
 
     pcl_pub = this->create_publisher<PointCloud2>("/pointcloud", 1);
 
@@ -57,7 +87,9 @@ StereoReconstructionNode::StereoReconstructionNode(const std::string node_name, 
     frame_right_sub = this->create_subscription<Image>(camera_right_topic, 1, 
         std::bind(&StereoReconstructionNode::callback_frame_right, this, std::placeholders::_1));
 
-    float hz_pc_computation = 1.0;
+    float hz_pc_computation = 5.0;
+
+
     pc_computation_timer = this->create_wall_timer(1000ms / hz_pc_computation, std::bind(&StereoReconstructionNode::generate_pcl_thread, this));
     
 
@@ -115,11 +147,16 @@ void StereoReconstructionNode::generate_pcl_thread(){
     }
 
     else{
-        cv::Mat img_left = current_frame_left;
-        cv::Mat img_right = current_frame_right;
-        
-        cv::Mat disparity_map = stereo_reconstruction->disparity_from_stereovision(img_left, img_right);
+        cv::Mat img_left_color = current_frame_left;
+        cv::Mat img_right_color = current_frame_right;
 
+        Mat img_left, img_right;
+        
+        cvtColor(img_left_color, img_left, cv::COLOR_RGB2GRAY);
+        cvtColor(img_right_color, img_right, cv::COLOR_RGB2GRAY);
+
+        cv::Mat disparity_map = stereo_reconstruction->disparity_from_stereovision(img_left, img_right);
+        
         cv::Mat disparity_map_image;
         double min, max;
         cv::minMaxLoc(disparity_map, &min, &max);
@@ -133,9 +170,8 @@ void StereoReconstructionNode::generate_pcl_thread(){
         disp_msg->header.frame_id = "pointcloud";
         disparity_pub->publish(*disp_msg.get());
 
-
         cv::Mat right_disparity_map = stereo_reconstruction->right_disparity_from_stereovision(img_left, img_right);
-        
+
         cv::Mat right_disparity_map_image;
         cv::minMaxLoc(right_disparity_map, &min, &max);
         right_disparity_map.convertTo(right_disparity_map_image, CV_8UC1, 255.0/max);
@@ -149,10 +185,32 @@ void StereoReconstructionNode::generate_pcl_thread(){
         right_disparity_pub->publish(*right_disp_msg.get());
         
         cv::Mat filter_disparity_map = stereo_reconstruction->filter_disparity(img_left, img_right, disparity_map, right_disparity_map);
+        cv::minMaxLoc(filter_disparity_map, &min, &max);
+        
+        for(int i = 0; i < filter_disparity_map.rows; i++)
+        {
+            for(int j = 0; j < filter_disparity_map.cols; j++)
+            {
+                uint16_t pixel_value = filter_disparity_map.at<uint16_t>(i, j);
+
+                if(pixel_value < 48)
+                    pixel_value = 48;
+
+                if(pixel_value > 1000)
+                    pixel_value = 1000;
+
+                filter_disparity_map.at<uint16_t>(i, j) = pixel_value;
+            }
+        }
+
+        std::string filter_disparity_map_type = Mat_type2str(filter_disparity_map.type() );
+        std::cerr << "filter_disparity_map_type: " << filter_disparity_map_type << std::endl;
+        std::cerr << "filter_disparity_map - min: " << min << std::endl;
+        std::cerr << "filter_disparity_map - max: " << max << std::endl;
 
         cv::Mat filter_disparity_map_image;
-        cv::minMaxLoc(filter_disparity_map, &min, &max);
-        filter_disparity_map.convertTo(filter_disparity_map_image, CV_8UC1, 255.0/max);
+
+        filter_disparity_map.convertTo(filter_disparity_map_image, CV_8UC1, 255.0/1000.0);
 
         sensor_msgs::msg::Image::SharedPtr filter_disparity_msg =
             cv_bridge::CvImage(std_msgs::msg::Header(), "mono8", filter_disparity_map_image)
@@ -162,17 +220,77 @@ void StereoReconstructionNode::generate_pcl_thread(){
         filter_disparity_msg->header.frame_id = "pointcloud";
         filter_disparity_pub->publish(*filter_disparity_msg.get());
 
-        cv::minMaxLoc(filter_disparity_map, &min, &max);
-
-        cv::Mat filter_disparity_map2 = filter_disparity_map;
+        // cv::Mat filter_disparity_map2 = filter_disparity_map;
+        // cv::minMaxLoc(filter_disparity_map, &min, &max);
         // filter_disparity_map.convertTo(filter_disparity_map2, CV_16S, 255.0/max);
-        std::pair<cv::Mat, cv::Mat> pcl_output = stereo_reconstruction->pcl_from_disparity(filter_disparity_map2, img_left, img_right);
-        
-        cv::Mat output_points = pcl_output.first;
-        cv::Mat output_colors = pcl_output.second;
+        // std::pair<cv::Mat, cv::Mat> pcl_output = stereo_reconstruction->pcl_from_disparity(filter_disparity_map2, img_left, img_right);
+        // cv::Mat output_points = pcl_output.first;
+        // cv::Mat output_colors = pcl_output.second;
+
+        cv::Mat output_points = stereo_reconstruction->simple_pcl_from_disparity(filter_disparity_map);
+
+
+        std::cerr << "OpenCV output_points computed" << std::endl;
+        std::cerr << output_points.rows << " " << output_points.cols << " " << output_points.channels() << std::endl;
+
+        std::string output_points_type = Mat_type2str(output_points.type());
+
+        std::cerr << "output_points_type: " << output_points_type << std::endl;
+
+        float min_x = 10000.0;
+        float max_x = 0.0;
+
+        float min_y = 10000.0;
+        float max_y = 0.0;
+
+        float min_z = 10000.0;
+        float max_z = 0.0;
+
+        for (int u = 0; u < output_points.rows; ++u) {
+            for (int v = 0; v < output_points.cols; ++v) {
+
+                float Xw = 0, Yw = 0, Zw = 0;
+
+                auto point_v = output_points.at<cv::Vec3f>(u, v);
+
+                Xw = point_v[0];
+                Yw = point_v[1];
+                Zw = point_v[2];
+
+                if(Xw < min_x){
+                    min_x = Xw;
+                }
+                if(Xw > max_x){
+                    max_x = Xw;
+                }
+
+                if(Yw < min_y){
+                    min_y = Yw;
+                }
+                if(Yw > max_y){
+                    max_y = Yw;
+                }
+
+                if(Zw < min_z){
+                    min_z = Zw;
+                }
+                if(Zw > max_z){
+                    max_z = Zw;
+                }
+            }
+        }
+
+        std::cerr << "min_x: " << min_x << std::endl;
+        std::cerr << "max_x: " << max_x << std::endl;
+
+        std::cerr << "min_y: " << min_y << std::endl;
+        std::cerr << "max_y: " << max_y << std::endl;
+
+        std::cerr << "min_z: " << min_z << std::endl;
+        std::cerr << "max_z: " << max_z << std::endl;
+
 
         PointCloud2 pclmsg;
-
         pclmsg.header = disp_msg->header;
 
         pclmsg.width = output_points.cols;
@@ -183,11 +301,13 @@ void StereoReconstructionNode::generate_pcl_thread(){
         point_field_x.count = 1;
         point_field_x.datatype = PointField::FLOAT32;
         point_field_x.offset = 0;
+
         PointField point_field_y = PointField();
         point_field_y.name = 'y';
         point_field_y.count = 1;
         point_field_y.datatype = PointField::FLOAT32;
         point_field_y.offset = 4;
+        
         PointField point_field_z = PointField();
         point_field_z.name = 'z';
         point_field_z.count = 1;

@@ -17,7 +17,7 @@ class StereoReconstruction {
 
 public:
 
-    StereoReconstruction(std::string file_storage, std::map<std::string, int> reconstruction_parameters);
+    StereoReconstruction(std::string file_storage, std::map<std::string, int> reconstruction_parameters, std::map<std::string, float> filter_parameters);
 
     cv::Mat disparity_from_stereovision(Mat img_left, Mat img_right);
 
@@ -26,6 +26,8 @@ public:
     cv::Mat filter_disparity(cv::Mat left_image, cv::Mat right_image, cv::Mat left_disp, cv::Mat right_disp);
 
     std::pair<cv::Mat, cv::Mat> pcl_from_disparity(cv::Mat disparity_map, cv::Mat img_left, cv::Mat img_right);
+
+    cv::Mat simple_pcl_from_disparity(cv::Mat disparity_map);
 
 private:
 
